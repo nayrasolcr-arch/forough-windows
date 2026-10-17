@@ -135,6 +135,9 @@ jobs:
           meson setup build --prefix="$STAGE" --buildtype=release
           ninja -C build
           ninja -C build install
+          # gnome.compile_schemas only leaves gschemas.compiled in the build
+          # dir on some meson versions; make the stage self-contained.
+          glib-compile-schemas "$STAGE/share/glib-2.0/schemas"
           test -f "$STAGE/bin/forough.exe"
           test -f "$STAGE/share/glib-2.0/schemas/gschemas.compiled"
 
