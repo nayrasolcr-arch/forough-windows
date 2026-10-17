@@ -539,7 +539,11 @@ namespace PsiphonCliGui {
         // Synchronous best-effort cleanup used before starting a new instance.
         private void force_stop () {
             if (process != null) {
+#if WINDOWS
+                process.force_exit ();
+#else
                 process.send_signal (9);
+#endif
                 process = null;
             }
             running = false;
