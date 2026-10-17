@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.nayrasolcr.Forough</id>
+  <name>Forough</name>
+  <name xml:lang="fa">فروغ</name>
+  <summary>A bright window to the open internet — unofficial Psiphon VPN client</summary>
+  <summary xml:lang="fa">فروغ؛ پنجره‌ای روشن به اینترنت آزاد — کلاینت غیررسمی VPN سایفون</summary>
+  <metadata_license>GPL-3.0-only</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <developer_name translatable="no">Forough contributors</developer_name>
+  <description>
+    <p>
+      Forough is a fast, beautiful desktop VPN client for the open internet —
+      built on the Psiphon network, with a native GTK4 interface, full Persian
+      RTL support, a manual CDN edge scanner, live traffic graph, built-in
+      speed test, a TUN watchdog with auto-restart, and an automatic
+      system-proxy fallback. It drives the official psiphon-tunnel-core
+      directly and adds whole-device routing through sing-box.
+    </p>
+    <p xml:lang="fa">
+      فروغ یک کلاینت VPN دسکتاپی سریع و زیبا برای دسترسی آزاد به اینترنت است؛
+      ساخته‌شده روی شبکه سایفون با رابط بومی GTK4، پشتیبانی کامل راست‌به‌چپ
+      فارسی، اسکنر دستی لبه‌های CDN، نمودار زنده ترافیک، تست سرعت داخلی،
+      نگهبان TUN با ری‌استارت خودکار و مسیر پشتیبان پراکسی سیستم. این برنامه
+      هستهٔ رسمی psiphon-tunnel-core را مستقیماً مدیریت می‌کند و مسیریابی کل
+      دستگاه را با sing-box اضافه می‌کند.
+    </p>
+    <p>
+      This application is NOT developed, endorsed, sponsored, or affiliated
+      with Psiphon Inc. in any way. Learn more about Psiphon at psiphon.ca.
+    </p>
+    <p xml:lang="fa">
+      این برنامه به هیچ‌وجه توسط Psiphon Inc. توسعه نیافته، تأیید یا حمایت
+      نمی‌شود و وابسته به آن نیست. بیشتر دربارهٔ سایفون: psiphon.ca
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.nayrasolcr.Forough.desktop</launchable>
+  <url type="homepage">https://github.com/nayrasolcr-arch/forough-windows</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="2.0.0" date="2026-10-17">
+      <description>
+        <p>
+          First release of the rebranded Forough client. The GTK4 desktop
+          client ships the complete v1.5.1 feature set — protocol selection
+          (auto, conduit/in-proxy, direct, CDN fronting), beast mode, region
+          selection, whole-device TUN routing via sing-box with a five-second
+          watchdog and automatic system-proxy fallback, a live traffic graph,
+          a manual CDN edge scanner with per-edge TCP/TLS latency, a built-in
+          speed test, full diagnostics reporting, and Persian/English
+          interface with complete RTL support — on top of the Forough-branded
+          psiphon-tunnel-core fork (quality-ranked CDN edge scanning) and
+          sing-box 1.14.3.
+        </p>
+        <p xml:lang="fa">
+          نخستین انتشار کلاینت با نام تازهٔ «فروغ». کلاینت دسکتاپی GTK4 مجموعهٔ
+          کامل قابلیت‌های نسخهٔ ۱٫۵٫۱ را ارائه می‌دهد — انتخاب پروتکل (خودکار،
+          کانالیوت/in-proxy، مستقیم، فرونتینگ CDN)، حالت بیست، انتخاب منطقه،
+          مسیریابی کل دستگاه با sing-box به‌همراه نگهبان پنج‌ثانیه‌ای و
+          بازگشت خودکار به پروکسی سیستم، نمودار زندهٔ ترافیک، اسکنر دستی
+          لبه‌های CDN با تأخیر TCP/TLS هر لبه، تست سرعت داخلی، گزارش کامل
+          عیب‌یابی، و رابط دوزبانهٔ فارسی/انگلیسی با پشتیبانی کامل RTL — بر
+          بستر فورک فروغِ psiphon-tunnel-core (اسکن CDN با رتبه‌بندی سرعت) و
+          sing-box 1.14.3.
+        </p>
+      </description>
+    </release>
+  </releases>
+</component>

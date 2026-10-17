@@ -1,0 +1,14 @@
+{
+  "name": "forough-windows",
+  "version": "2.0.0",
+  "description": "Forough — unofficial Psiphon VPN client for Windows (GTK4 GUI; node is only used by build-time asset scripts)",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nayrasolcr-arch/forough-windows.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.nayrasolcr.Forough" path="/io/github/nayrasolcr/Forough/">
+    <key name="protocol" type="i">
+      <default>0</default>
+      <summary>Protocol mode</summary>
+      <description>0 auto, 1 conduit, 2 direct, 3 cdn fronting.</description>
+    </key>
+    <key name="region" type="s">
+      <default>''</default>
+      <summary>Egress region code</summary>
+    </key>
+    <key name="upstream-proxy" type="s">
+      <default>''</default>
+      <summary>Upstream proxy URL</summary>
+    </key>
+    <key name="core-path" type="s">
+      <default>''</default>
+      <summary>Custom psiphon-tunnel-core path</summary>
+    </key>
+    <key name="config-dir" type="s">
+      <default>''</default>
+      <summary>Config directory</summary>
+    </key>
+    <key name="enable-lan" type="b">
+      <default>false</default>
+      <summary>Enable LAN mode</summary>
+    </key>
+    <key name="enable-beast-mode" type="b">
+      <default>true</default>
+      <summary>Enable beast mode</summary>
+      <description>Aggressive establishment: try all protocols on all servers.</description>
+    </key>
+    <key name="enable-timeout" type="b">
+      <default>false</default>
+      <summary>Enable establish tunnel timeout</summary>
+    </key>
+    <key name="enable-system-proxy" type="b">
+      <default>true</default>
+      <summary>Enable system proxy on connect</summary>
+      <description>Desktop default mirrors the Psiphon Android client: apps should ride the tunnel without manual configuration. On Windows this drives the WinInet (HKCU Internet Settings) user proxy.</description>
+    </key>
+    <key name="enable-tun" type="b">
+      <default>true</default>
+      <summary>Enable TUN routing via sing-box on connect</summary>
+      <description>Whole-device routing via sing-box's own TUN with auto_route (wintun on Windows), the desktop equivalent of Android's VpnService.</description>
+    </key>
+    <key name="tun-fakeip-dns" type="b">
+      <default>false</default>
+      <summary>Fake-IP DNS experiment under TUN</summary>
+      <description>Answers A/AAAA queries instantly from a fake-IP pool and resolves domains at the tunnel exit. DEFAULT OFF since v1.5.0: field reports showed dead-traffic tunnels with this enabled, while the forward path (TCP DNS + cache) is proven since v1.3.1. Enable only to experiment.</description>
+    </key>
+    <key name="cf-token" type="s">
+      <default>''</default>
+      <summary>Cloudflare API token for the helper worker</summary>
+      <description>Used only against api.cloudflare.com to verify the token and deploy/update the Forough edge-helper worker. Needs Account:Read and Workers Scripts:Edit.</description>
+    </key>
+    <key name="cf-worker-url" type="s">
+      <default>''</default>
+      <summary>Deployed helper worker URL</summary>
+      <description>workers.dev URL of the deployed edge helper; used for colo and latency probes.</description>
+    </key>
+    <key name="routing-defaults-migrated" type="b">
+      <default>false</default>
+      <summary>One-time migration to on-by-default routing</summary>
+      <description>Set after the first run of 1.3.0 enabled TUN and system proxy for installs that predate the new defaults. Later user choices are never overwritten.</description>
+    </key>
+    <key name="sing-box-path" type="s">
+      <default>''</default>
+      <summary>Custom sing-box binary path</summary>
+    </key>
+    <key name="inproxy-compartment-id" type="s">
+      <default>''</default>
+      <summary>Personal in-proxy compartment ID</summary>
+      <description>Used for private conduit pairing; empty means public conduits.</description>
+    </key>
+    <key name="cdn-fronting-ip-list" type="s">
+      <default>''</default>
+      <summary>Custom CDN fronting IP candidates</summary>
+      <description>IPv4 addresses or CIDRs, separated by spaces, commas, or semicolons. Used by the built-in CDN scan in fronting mode; empty means the built-in edge candidates only.</description>
+    </key>
+    <key name="cdn-fronting-sni" type="s">
+      <default>''</default>
+      <summary>Custom CDN fronting SNI server names</summary>
+      <description>Hostnames separated by spaces, commas, or semicolons. Optional companion to cdn-fronting-ip-list.</description>
+    </key>
+    <key name="osl-urls" type="s">
+      <default>''</default>
+      <summary>Obfuscated server list root URLs</summary>
+      <description>OSL registry root URLs, separated by spaces, commas, or semicolons. OSL carries protocol-specific server buckets (including CDN-fronted meek) that the common remote server list barely contains; empty means the remote server list only.</description>
+    </key>
+    <key name="language" type="s">
+      <default>'system'</default>
+      <summary>Interface language</summary>
+      <description>system, fa, or en. Takes effect after restart.</description>
+    </key>
+  </schema>
+</schemalist>

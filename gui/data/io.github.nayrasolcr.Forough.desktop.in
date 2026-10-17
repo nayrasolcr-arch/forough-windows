@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Forough
+Name[fa]=فروغ
+GenericName=Psiphon VPN Client
+GenericName[fa]=کلاینت VPN سایفون
+Comment=Forough — a bright window to the open internet
+Comment[fa]=فروغ؛ پنجره‌ای روشن به اینترنت آزاد
+Exec=forough
+Icon=io.github.nayrasolcr.Forough
+Terminal=false
+Categories=Network;Utility;
+Keywords=vpn;psiphon;proxy;forough;فروغ;

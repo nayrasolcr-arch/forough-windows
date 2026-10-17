@@ -1,0 +1,70 @@
+namespace PsiphonCliGui {
+    public class SettingsService : Object {
+        private Settings settings;
+
+        public SettingsService () {
+            settings = new Settings (Constants.SETTINGS_SCHEMA_ID);
+        }
+
+        public TunnelOptions load_options () {
+            var options = new TunnelOptions ();
+            options.protocol = ProtocolMode.from_index (settings.get_int ("protocol"));
+            options.region = settings.get_string ("region");
+            options.upstream_proxy_url = settings.get_string ("upstream-proxy");
+            options.core_path = settings.get_string ("core-path");
+            options.config_dir = settings.get_string ("config-dir");
+            options.enable_lan = settings.get_boolean ("enable-lan");
+            options.enable_beast_mode = settings.get_boolean ("enable-beast-mode");
+            options.enable_timeout = settings.get_boolean ("enable-timeout");
+            options.enable_system_proxy = settings.get_boolean ("enable-system-proxy");
+            options.enable_tun = settings.get_boolean ("enable-tun");
+            options.tun_fakeip = settings.get_boolean ("tun-fakeip-dns");
+            options.sing_box_path = settings.get_string ("sing-box-path");
+            options.inproxy_compartment_id = settings.get_string ("inproxy-compartment-id");
+            options.cdn_fronting_ip_list = settings.get_string ("cdn-fronting-ip-list");
+            options.cdn_fronting_sni = settings.get_string ("cdn-fronting-sni");
+            options.osl_urls = settings.get_string ("osl-urls");
+
+            migrate_routing_defaults (options);
+            return options;
+        }
+
+        // One-time migration to the Android-like defaults. Before 1.3.0 the
+        // routing switches were off by default, so a fresh install connected
+        // the tunnel but left every app's traffic outside it ("connected with
+        // a Germany IP, but no site opens"). Existing installs have explicit
+        // dconf values that a schema-default change would never reach, so the
+        // first run of >=1.3.0 turns both switches on once. Whatever the user
+        // chooses afterwards is saved normally and never re-migrated.
+        private void migrate_routing_defaults (TunnelOptions options) {
+            if (settings.get_boolean ("routing-defaults-migrated")) {
+                return;
+            }
+
+            options.enable_tun = true;
+            options.enable_system_proxy = true;
+            settings.set_boolean ("enable-tun", true);
+            settings.set_boolean ("enable-system-proxy", true);
+            settings.set_boolean ("routing-defaults-migrated", true);
+        }
+
+        public void save_options (TunnelOptions options) {
+            settings.set_int ("protocol", (int) options.protocol);
+            settings.set_string ("region", options.region);
+            settings.set_string ("upstream-proxy", options.upstream_proxy_url);
+            settings.set_string ("core-path", options.core_path);
+            settings.set_string ("config-dir", options.config_dir);
+            settings.set_boolean ("enable-lan", options.enable_lan);
+            settings.set_boolean ("enable-beast-mode", options.enable_beast_mode);
+            settings.set_boolean ("enable-timeout", options.enable_timeout);
+            settings.set_boolean ("enable-system-proxy", options.enable_system_proxy);
+            settings.set_boolean ("enable-tun", options.enable_tun);
+            settings.set_boolean ("tun-fakeip-dns", options.tun_fakeip);
+            settings.set_string ("sing-box-path", options.sing_box_path);
+            settings.set_string ("inproxy-compartment-id", options.inproxy_compartment_id);
+            settings.set_string ("cdn-fronting-ip-list", options.cdn_fronting_ip_list);
+            settings.set_string ("cdn-fronting-sni", options.cdn_fronting_sni);
+            settings.set_string ("osl-urls", options.osl_urls);
+        }
+    }
+}

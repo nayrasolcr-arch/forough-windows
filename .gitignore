@@ -1,0 +1,35 @@
+# Build / dev artifacts
+gui/_build/
+gui/build/
+build/
+builddir/
+dist/
+node_modules/
+*.log
+
+# Bundled runtime binaries are downloaded at build/CI time — never committed.
+psiphon-tunnel-core-x86_64
+psiphon-tunnel-core-x86_64.exe
+sing-box
+sing-box.exe
+wintun.dll
+libcronet.so
+Forough-*.zip
+
+# Local test artifacts
+connect-test/
+test-results/
+rpm-test-root/
+
+# Secrets — never commit credentials or tokens
+.env
+.env.*
+*.pem
+*.key
+gh_token*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~

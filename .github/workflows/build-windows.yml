@@ -1,0 +1,355 @@
+name: Build & Release (Windows)
+
+# Forough — native Windows client (GTK4 / libadwaita, portable bundle).
+#
+# go-bins:      builds the two engines from source for windows-amd64
+#               (psiphon-tunnel-core fork @ pinned rev, sing-box v1.14.3)
+#               and fetches wintun.dll 0.14.1.
+# windows-gui:  compiles the GTK4 GUI with MSYS2 MinGW64 (valac + meson),
+#               stages a portable Forough/ bundle (runtime DLLs walked with
+#               ldd, icons, glib schemas, gdk-pixbuf loaders, gio modules,
+#               fontconfig config), zips it and produces SHA256SUMS.
+# release:      publishes GitHub Release v2.0.0 with the zip + checksums.
+#
+# Self-contained: no repository secrets required.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FOROUGH_VERSION: "2.0.0"
+  TUNNEL_CORE_REPO: https://github.com/nayrasolcr-arch/psiphon-tunnel-core
+  TUNNEL_CORE_REV: 90c30c856ed5ac285685f1ac29915b509aee0e2d
+  SING_BOX_VERSION: "1.14.3"
+  WINTUN_VERSION: "0.14.1"
+
+jobs:
+  go-bins:
+    name: Engines (Go, windows-amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+
+      - name: Build psiphon-tunnel-core (fork rev ${{ env.TUNNEL_CORE_REV }})
+        run: |
+          set -euxo pipefail
+          git clone --no-checkout "$TUNNEL_CORE_REPO" tunnel-core-src
+          git -C tunnel-core-src checkout --quiet "$TUNNEL_CORE_REV"
+          REV="$(git -C tunnel-core-src rev-parse --short=10 HEAD)"
+          DATE="$(git -C tunnel-core-src show -s --format=%cI HEAD)"
+          GOVER="$(go version | awk '{print $3}')"
+          echo "tunnel-core rev=$REV date=$DATE toolchain=$GOVER"
+          cd tunnel-core-src/ConsoleClient
+          CGO_ENABLED=0 GOFLAGS=-mod=vendor GOOS=windows GOARCH=amd64 \
+          go build -trimpath -buildvcs=false \
+            -ldflags "-checklinkname=0 -s -w \
+              -X github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon/common/buildinfo.buildDate=$DATE \
+              -X github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon/common/buildinfo.buildRepo=$TUNNEL_CORE_REPO \
+              -X github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon/common/buildinfo.buildRev=$REV \
+              -X github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon/common/buildinfo.goVersion=$GOVER" \
+            -o "$GITHUB_WORKSPACE/psiphon-tunnel-core-x86_64.exe" .
+
+      - name: Build sing-box v${{ env.SING_BOX_VERSION }}
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch "v${SING_BOX_VERSION}" \
+            https://github.com/SagerNet/sing-box sing-box-src
+          cd sing-box-src
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 GOTOOLCHAIN=local \
+          go build -trimpath -buildvcs=false \
+            -tags "with_gvisor,with_utls,with_clash_api" \
+            -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${SING_BOX_VERSION}' \
+                      -X runtime.godebugDefault=multipathtcp=0,tlssha1=1 \
+                      -checklinkname=0 -s -w -buildid=" \
+            -o "$GITHUB_WORKSPACE/sing-box.exe" ./cmd/sing-box
+
+      - name: Fetch wintun v${{ env.WINTUN_VERSION }}
+        run: |
+          set -euxo pipefail
+          curl -fSL --retry 3 --retry-delay 2 \
+            -o /tmp/wintun.zip "https://www.wintun.net/builds/wintun-${WINTUN_VERSION}.zip"
+          unzip -o -j /tmp/wintun.zip "wintun/bin/amd64/wintun.dll" -d "$GITHUB_WORKSPACE"
+
+      - name: Sanity-check binaries
+        run: |
+          set -euxo pipefail
+          file psiphon-tunnel-core-x86_64.exe sing-box.exe wintun.dll
+          sha256sum psiphon-tunnel-core-x86_64.exe sing-box.exe wintun.dll
+
+      - name: Upload engine binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-bins
+          path: |
+            psiphon-tunnel-core-x86_64.exe
+            sing-box.exe
+            wintun.dll
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-gui:
+    name: GTK4 GUI (MSYS2 MinGW64) + portable bundle
+    runs-on: windows-latest
+    needs: go-bins
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download engine binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: go-bins
+          path: go-bins
+
+      - name: Set up MSYS2 (MINGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          release: true
+          install: >-
+            mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-libadwaita
+            mingw-w64-x86_64-json-glib
+            mingw-w64-x86_64-vala
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-nodejs
+
+      - name: Build GUI (meson + ninja) and install into stage prefix
+        run: |
+          set -euxo pipefail
+          STAGE="$(pwd -W)/stage"
+          cd gui
+          meson setup build --prefix="$STAGE" --buildtype=release
+          ninja -C build
+          ninja -C build install
+          test -f "$STAGE/bin/forough.exe"
+          test -f "$STAGE/share/glib-2.0/schemas/gschemas.compiled"
+
+      - name: Assemble portable Forough bundle
+        run: |
+          set -euxo pipefail
+          ROOT="$(pwd -W)"
+
+          # --- application + data from the meson stage prefix ---------------
+          # Portable layout (everything relative to forough.exe at the root):
+          #   forough.exe, all runtime DLLs, engines, wintun.dll
+          #   share/forough/configs, share/glib-2.0/schemas, share/icons
+          #   lib/gdk-pixbuf-2.0/..., lib/gio/modules, etc/fonts
+          mkdir Forough
+          cp -r stage/share Forough/share
+          cp stage/bin/forough.exe Forough/
+
+          # --- engines ------------------------------------------------------
+          cp go-bins/psiphon-tunnel-core-x86_64.exe Forough/
+          cp go-bins/sing-box.exe Forough/
+          cp go-bins/wintun.dll Forough/
+
+          # --- runtime DLLs (walk ldd of the exe, MinGW64 ones only) --------
+          copy_mingw_dlls () {
+            ldd "$1" 2>/dev/null | awk '/mingw64/ {print $3}' | sort -u \
+              | while read -r dll; do
+                  if [ -n "$dll" ] && [ -f "$dll" ]; then cp -u "$dll" Forough/; fi
+                done
+          }
+          copy_mingw_dlls Forough/forough.exe
+
+          # glib's spawn helpers must sit next to forough.exe (GSubprocess).
+          cp /mingw64/bin/gspawn-win32-helper.exe Forough/ 2>/dev/null || true
+          cp /mingw64/bin/gspawn-win32-helper-console.exe Forough/ 2>/dev/null || true
+
+          # --- gdk-pixbuf loaders + cache ----------------------------------
+          # gdk-pixbuf is relocatable on Windows: relative cache entries are
+          # resolved against the directory of gdk-pixbuf-2.0-0.dll (the bundle
+          # root), and the cache is looked up in <toplevel>/lib/...
+          mkdir -p Forough/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
+             Forough/lib/gdk-pixbuf-2.0/2.10.0/loaders/
+          copy_mingw_dlls Forough/lib/gdk-pixbuf-2.0/2.10.0/loaders/png.dll || true
+          for loader in Forough/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll; do
+            copy_mingw_dlls "$loader"
+          done
+          (cd Forough && gdk-pixbuf-query-loaders \
+             'lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll' \
+             > lib/gdk-pixbuf-2.0/2.10.0/loaders.cache)
+
+          # --- gio modules ---------------------------------------------------
+          mkdir -p Forough/lib/gio/modules
+          cp /mingw64/lib/gio/modules/*.dll Forough/lib/gio/modules/ 2>/dev/null || true
+          if compgen -G 'Forough/lib/gio/modules/*.dll' > /dev/null; then
+            for mod_dll in Forough/lib/gio/modules/*.dll; do
+              copy_mingw_dlls "$mod_dll"
+            done
+            gio-querymodules Forough/lib/gio/modules || true
+          fi
+
+          # --- GTK4 input method modules (best effort) ----------------------
+          if [ -d /mingw64/lib/gtk-4.0/4.0.0/immodules ] \
+             && compgen -G '/mingw64/lib/gtk-4.0/4.0.0/immodules/*.dll' > /dev/null; then
+            mkdir -p Forough/lib/gtk-4.0/4.0.0/immodules
+            cp /mingw64/lib/gtk-4.0/4.0.0/immodules/*.dll Forough/lib/gtk-4.0/4.0.0/immodules/
+            for im_dll in Forough/lib/gtk-4.0/4.0.0/immodules/*.dll; do
+              copy_mingw_dlls "$im_dll"
+            done
+          fi
+
+          # --- icon themes ----------------------------------------------------
+          mkdir -p Forough/share/icons
+          cp -r /mingw64/share/icons/Adwaita Forough/share/icons/Adwaita
+          cp -r /mingw64/share/icons/hicolor Forough/share/icons/hicolor
+
+          # --- dependency glib schemas + recompile ---------------------------
+          cp /mingw64/share/glib-2.0/schemas/*.xml \
+             Forough/share/glib-2.0/schemas/ 2>/dev/null || true
+          cp /mingw64/share/glib-2.0/schemas/*.override \
+             Forough/share/glib-2.0/schemas/ 2>/dev/null || true
+          glib-compile-schemas Forough/share/glib-2.0/schemas
+
+          # --- fontconfig (system fonts via WINDOWSFONTDIR) ------------------
+          mkdir -p Forough/etc/fonts
+          cp /mingw64/etc/fonts/fonts.conf Forough/etc/fonts/fonts.conf 2>/dev/null || true
+          if [ -d /mingw64/etc/fonts/conf.d ]; then
+            cp -r /mingw64/etc/fonts/conf.d Forough/etc/fonts/conf.d
+          fi
+          cat > Forough/etc/fonts/local.conf <<'FCEOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+          <fontconfig>
+            <dir>WINDOWSFONTDIR</dir>
+            <cachedir>WINDOWSTEMPDIR_FONTCONFIG_CACHE</cachedir>
+          </fontconfig>
+          FCEOF
+
+          # --- VERSION.txt ----------------------------------------------------
+          SB_VER="$(./Forough/sing-box.exe version | sed -n 's/^version: //p' || echo "$SING_BOX_VERSION")"
+          WT_SHA="$(sha256sum Forough/wintun.dll | awk '{print $1}')"
+          {
+            echo "Forough ${FOROUGH_VERSION} — windows-x86_64 (portable)"
+            echo "app:        ${FOROUGH_VERSION}"
+            echo "engine:     psiphon-tunnel-core ${TUNNEL_CORE_REV:0:10} (${TUNNEL_CORE_REPO})"
+            echo "sing-box:   ${SB_VER}"
+            echo "wintun:     ${WINTUN_VERSION}  sha256=${WT_SHA}"
+            echo "generated:  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > Forough/VERSION.txt
+
+      - name: Zip bundle + SHA256SUMS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location Forough
+          & 'C:\Program Files\7-Zip\7z.exe' a -tzip -mx=9 `
+            "..\Forough-$env:FOROUGH_VERSION-windows-x86_64.zip" * | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z failed with $LASTEXITCODE" }
+          Set-Location ..
+          $files = @(
+            "Forough-$env:FOROUGH_VERSION-windows-x86_64.zip",
+            "Forough/VERSION.txt",
+            "Forough/forough.exe",
+            "Forough/psiphon-tunnel-core-x86_64.exe",
+            "Forough/sing-box.exe",
+            "Forough/wintun.dll"
+          )
+          $lines = foreach ($f in $files) {
+            $h = (Get-FileHash -Algorithm SHA256 $f).Hash.ToLower()
+            "$h  $(Split-Path -Leaf $f)"
+          }
+          $lines -join "`n" | Set-Content -NoNewline -Encoding ascii SHA256SUMS
+          Get-Content SHA256SUMS
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forough-bundle
+          path: |
+            Forough-*.zip
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Release v${{ env.FOROUGH_VERSION }}
+    runs-on: ubuntu-latest
+    needs: windows-gui
+    steps:
+      - name: Download bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: forough-bundle
+          path: dist
+
+      - name: Create GitHub Release v2.0.0
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.FOROUGH_VERSION }}
+          name: Forough v2.0.0 — first Windows build
+          draft: false
+          prerelease: false
+          files: |
+            dist/Forough-2.0.0-windows-x86_64.zip
+            dist/SHA256SUMS
+          body: |
+            ## Forough v2.0.0 — فروغ
+            **First Windows build of Forough** — a fast, beautiful desktop VPN client for the open internet.
+
+            **فروغ؛ پنجره‌ای روشن به اینترنت آزاد** — نخستین ساخت ویندوزِ کلاینت دسکتاپی فروغ.
+
+            ---
+
+            ### English
+
+            - Native **GTK4 / libadwaita** interface, full Persian (RTL) + English UI
+            - Built on the **Psiphon network** via the official `psiphon-tunnel-core` engine (Forough fork @ `90c30c85`, quality-ranked CDN edge scanning, beast mode)
+            - **Whole-device TUN routing** through sing-box 1.14.3 (`auto_route` + `strict_route`, wintun 0.14.1) with a 5-second watchdog and auto-restart
+            - **Automatic system-proxy fallback** (WinInet `127.0.0.1:8081`) when TUN is unavailable
+            - Manual **CDN edge scanner**, **live traffic graph** (clash API), **built-in speed test**, full diagnostics report
+            - Protocol selection: auto / in-proxy (conduit) / direct / CDN fronting — same controls as the Android client
+
+            **Portable install**
+            1. Download `Forough-2.0.0-windows-x86_64.zip` below and unzip it anywhere (no installer).
+            2. Run **`forough.exe`**.
+            3. First TUN connection needs **Administrator** rights (wintun adapter creation) — right-click `forough.exe` → *Run as administrator*, or just let Forough fall back to the system proxy.
+            4. `wintun.dll`, `psiphon-tunnel-core-x86_64.exe` and `sing-box.exe` ship next to `forough.exe` — keep them together.
+            5. Verify the download with `SHA256SUMS`.
+
+            ### فارسی
+
+            - رابط بومی **GTK4 / libadwaita** با پشتیبانی کامل فارسی (راست‌به‌چپ) و انگلیسی
+            - ساخته‌شده روی **شبکهٔ سایفون** با هستهٔ رسمی `psiphon-tunnel-core` (فورک فروغ @ `90c30c85`، اسکن CDN رتبه‌بندی‌شده، حالت بیست)
+            - **مسیریابی TUN کل دستگاه** با sing-box 1.14.3 (‏`auto_route` + `strict_route`، وین‌تان 0.14.1) به‌همراه نگهبان ۵ ثانیه‌ای و ری‌استارت خودکار
+            - **بازگشت خودکار به پروکسی سیستم** (WinInet روی `127.0.0.1:8081`) وقتی حالت TUN در دسترس نباشد
+            - **اسکنر دستی لبه‌های CDN**، **نمودار زندهٔ ترافیک**، **تست سرعت داخلی** و گزارش کامل عیب‌یابی
+            - انتخاب پروتکل: خودکار / کانالیوت (in-proxy) / مستقیم / فرونتینگ CDN — همان کنترل‌های اپ اندروید
+
+            **نصب پرتابل**
+            ۱. فایل `Forough-2.0.0-windows-x86_64.zip` را از پایین دانلود و هر جا خواستید باز کنید (بدون نصب‌کننده).
+            ۲. **`forough.exe`** را اجرا کنید.
+            ۳. نخستین اتصال TUN به دسترسی **Administrator** نیاز دارد (ساخت آداپتور وین‌تان) — روی `forough.exe` راست‌کلیک و *Run as administrator*، یا فروغ را به پروکسی سیستم بسپارید.
+            ۴. `wintun.dll` و `psiphon-tunnel-core-x86_64.exe` و `sing-box.exe` کنار `forough.exe` قرار دارند — آنها را جدا نکنید.
+            ۵. صحت دانلود را با `SHA256SUMS` بررسی کنید.
+
+            ---
+
+            ### Included components / حجم‌های داخل بسته
+            | Component | Version |
+            |---|---|
+            | Forough GUI | 2.0.0 |
+            | psiphon-tunnel-core | 90c30c856e (nayrasolcr-arch fork) |
+            | sing-box | 1.14.3 |
+            | wintun | 0.14.1 |
+
+            ### Disclaimer / سلب مسئولیت
+            This application is NOT developed, endorsed, sponsored, or affiliated with Psiphon Inc. in any way. Psiphon is a trademark of Psiphon Inc. — learn more at [psiphon.ca](https://psiphon.ca).
+
+            این برنامه به هیچ‌وجه توسط Psiphon Inc. توسعه نیافته، تأیید یا حمایت نمی‌شود و وابسته به آن نیست. برای اپ رسمی به [psiphon.ca](https://psiphon.ca) مراجعه کنید.
