@@ -36,7 +36,7 @@ jobs:
         with:
           go-version: "1.26.x"
 
-      - name: Build psiphon-tunnel-core (fork rev ${{ env.TUNNEL_CORE_REV }})
+      - name: Build psiphon-tunnel-core (fork rev 90c30c856e)
         run: |
           set -euxo pipefail
           git clone --no-checkout "$TUNNEL_CORE_REPO" tunnel-core-src
@@ -55,7 +55,7 @@ jobs:
               -X github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon/common/buildinfo.goVersion=$GOVER" \
             -o "$GITHUB_WORKSPACE/psiphon-tunnel-core-x86_64.exe" .
 
-      - name: Build sing-box v${{ env.SING_BOX_VERSION }}
+      - name: Build sing-box v1.14.3
         run: |
           set -euxo pipefail
           git clone --depth 1 --branch "v${SING_BOX_VERSION}" \
@@ -69,7 +69,7 @@ jobs:
                       -checklinkname=0 -s -w -buildid=" \
             -o "$GITHUB_WORKSPACE/sing-box.exe" ./cmd/sing-box
 
-      - name: Fetch wintun v${{ env.WINTUN_VERSION }}
+      - name: Fetch wintun v0.14.1
         run: |
           set -euxo pipefail
           curl -fSL --retry 3 --retry-delay 2 \
@@ -279,7 +279,7 @@ jobs:
           retention-days: 7
 
   release:
-    name: Release v${{ env.FOROUGH_VERSION }}
+    name: Release v2.0.0
     runs-on: ubuntu-latest
     needs: windows-gui
     steps:
